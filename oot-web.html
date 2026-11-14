@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Ocarina of Time</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#000;color:#000;
+    font:13px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;-webkit-text-size-adjust:100%}
+  body{overscroll-behavior:none}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+  /* ---------- top bar: black on white ---------- */
+  #bar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 6px;
+    background:#fff;color:#000;border-bottom:1px solid #000;z-index:30}
+  #bar .title{font-weight:700;margin-right:auto;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  #bar .title span{font-weight:400}
+  .tb{appearance:none;background:#fff;color:#000;border:1px solid #000;border-radius:0;
+    padding:4px 8px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;
+    touch-action:manipulation}
+  .tb:active{background:#000;color:#fff}
+  .tb[data-on="1"]{background:#000;color:#fff}
+
+  /* ---------- stage ---------- */
+  #stage{position:relative;flex:1 1 auto;min-height:0;background:#000}
+  #player{position:absolute;inset:0;width:100%;height:100%}
+  .ejs_virtualGamepad_parent{display:none !important}
+
+  /* ---------- boot ---------- */
+  #boot{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;
+    background:#000;color:#fff;font-size:13px}
+  #boot.done{display:none}
+  #prog{width:min(360px,70vw);height:10px;border:1px solid #fff;background:#000}
+  #prog i{display:block;height:100%;width:0;background:#fff}
+  #bootmsg{min-height:1.2em;font-variant-numeric:tabular-nums}
+  #sound{position:absolute;left:0;right:0;bottom:0;z-index:25;display:none;
+    background:#fff;color:#000;border-top:1px solid #000;padding:3px 6px;
+    text-align:center;font-size:12px}
+  #sound.on{display:block}
+  #diag{position:absolute;left:0;right:0;top:0;z-index:26;display:none;
+    background:#fff;color:#000;border-bottom:1px solid #000;padding:4px 8px;
+    text-align:center;font-size:12px}
+  #diag.on{display:block}
+
+  /* ---------- touch overlay ---------- */
+  #overlay{position:absolute;inset:0;z-index:20;pointer-events:none;
+    touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #overlay.hide-btns .pad{display:none}
+
+  #stick{position:absolute;left:16px;bottom:44px;width:168px;height:168px;border-radius:50%;
+    pointer-events:auto;touch-action:none;background:#333;border:2px solid #888}
+  #knob{position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;
+    border-radius:50%;background:#ccc;border:2px solid #555;will-change:transform}
+  #stick.kb #knob{background:#8cc}
+
+  .pad{position:absolute;pointer-events:auto;touch-action:none}
+  .k{position:absolute;display:flex;align-items:center;justify-content:center;
+    border-radius:50%;border:2px solid #000;color:#fff;font:700 15px/1 inherit;
+    pointer-events:auto;touch-action:none}
+  .k.down{outline:3px solid #fff;outline-offset:-5px}
+  .k.sq{border-radius:0;font-size:12px}
+
+  #face{right:12px;bottom:38px;width:210px;height:210px}
+  #bA{width:84px;height:84px;right:6px;bottom:28px;background:#2d6fd6}
+  #bB{width:66px;height:66px;right:92px;bottom:74px;background:#2f9e63}
+  #bZ{width:62px;height:62px;right:18px;bottom:120px;background:#b4761a}
+  #bR{width:58px;height:38px;right:86px;bottom:148px;border-radius:0;background:#6b6b6b}
+  #bL{width:58px;height:38px;right:148px;bottom:148px;border-radius:0;background:#6b6b6b}
+
+  #cpad{right:232px;bottom:50px;width:132px;height:132px}
+  #cpad .k{width:44px;height:44px;font-size:12px;background:#c9b227;color:#000}
+  #cU{left:44px;top:0}#cD{left:44px;top:88px}#cL{left:0;top:44px}#cR{left:88px;top:44px}
+
+  #extra{left:198px;bottom:118px;display:flex;flex-direction:column;gap:6px}
+  #extra .k{position:relative;width:62px;height:32px;border-radius:0;font-size:11px;background:#555}
+  #extra .k[data-on="1"]{background:#fff;color:#000}
+
+  /* ---------- panels: black on white ---------- */
+  .panel{position:absolute;inset:0;z-index:50;display:none;overflow:auto;
+    background:#fff;color:#000;padding:14px}
+  .panel.on{display:block}
+  .panel .wrap{max-width:900px;margin:0 auto}
+  .panel h2{margin:0 0 2px;font-size:16px}
+  .panel h3{margin:16px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+  .panel p{margin:4px 0 0;font-size:12px}
+  .panel .close{float:right}
+  .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+  #savetext{width:100%;height:220px;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;
+    border:1px solid #000;border-radius:0;padding:6px;resize:vertical;word-break:break-all;background:#fff;color:#000}
+  #savemsg{font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td{padding:3px 6px;border-bottom:1px solid #ccc;vertical-align:top}
+  td:first-child{width:46%}
+  kbd{display:inline-block;border:1px solid #000;padding:0 4px;margin:1px 2px 1px 0;
+    font:600 11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:0 24px}
+  @media (max-width:560px){
+    #stick{width:140px;height:140px;left:8px;bottom:34px}
+    #knob{width:64px;height:64px;margin:-32px 0 0 -32px}
+    #cpad,#extra{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar">
+    <div class="title">Ocarina of Time <span>N64 &middot; v1.2 (U)</span></div>
+    <button class="tb" id="tBtns" data-on="1">Buttons</button>
+    <button class="tb" id="tStick" data-on="1">Stick</button>
+    <button class="tb" id="tSave">Save text</button>
+    <button class="tb" id="tFs">Fullscreen</button>
+    <button class="tb" id="tHelp">Controls</button>
+  </div>
+
+  <div id="stage">
+    <div id="player"></div>
+
+    <div id="overlay">
+      <div id="stick"><div id="knob"></div></div>
+
+      <div class="pad" id="face">
+        <div class="k" id="bA" data-btn="A">A</div>
+        <div class="k" id="bB" data-btn="B">B</div>
+        <div class="k" id="bZ" data-btn="Z">Z</div>
+        <div class="k sq" id="bR" data-btn="R">R</div>
+        <div class="k sq" id="bL" data-btn="L">L</div>
+      </div>
+
+      <div class="pad" id="cpad">
+        <div class="k" id="cU" data-btn="CU">C&#9650;</div>
+        <div class="k" id="cD" data-btn="CD">C&#9660;</div>
+        <div class="k" id="cL" data-btn="CL">C&#9664;</div>
+        <div class="k" id="cR" data-btn="CR">C&#9656;</div>
+      </div>
+
+      <div class="pad" id="extra">
+        <div class="k sq" data-btn="START">START</div>
+        <div class="k sq" data-btn="WALK">WALK</div>
+      </div>
+    </div>
+
+    <div id="boot">
+      <div>Loading Ocarina of Time</div>
+      <div id="prog"><i></i></div>
+      <div id="bootmsg">Decoding embedded ROM...</div>
+    </div>
+
+    <div id="sound">Click or press a key to enable sound.</div>
+    <div id="diag"></div>
+
+    <!-- text save / load -->
+    <div class="panel" id="save"><div class="wrap">
+      <button class="tb close" id="closeSave">Close</button>
+      <h2>Save / load as text</h2>
+      <p>Save states and the cartridge save file, as gzipped base64 text you can copy
+         anywhere - a note, an email, a chat message - and paste back later.</p>
+      <div class="row">
+        <button class="tb" id="expState">Export save state</button>
+        <button class="tb" id="expSram">Export cartridge save</button>
+        <button class="tb" id="impBtn">Load text below</button>
+        <button class="tb" id="copyBtn">Copy</button>
+        <button class="tb" id="dlBtn">Download .txt</button>
+        <span id="savemsg"></span>
+      </div>
+      <textarea id="savetext" spellcheck="false" autocapitalize="off" autocorrect="off"
+        placeholder="Export writes text here. To restore, paste a previously exported block and press &quot;Load text below&quot;."></textarea>
+      <p><b>Save state</b> is the exact machine state, so it restores you mid-dungeon,
+         mid-jump, anywhere. <b>Cartridge save</b> is the game's own save file (the three
+         file slots), which survives core updates and works in other N64 emulators.</p>
+    </div></div>
+
+    <!-- controls -->
+    <div class="panel" id="help"><div class="wrap">
+      <button class="tb close" id="closeHelp">Close</button>
+      <h2>Controls</h2>
+      <p>Left hand on the on-screen stick, right hand resting on
+         <kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>.</p>
+      <div class="cols">
+        <div>
+          <h3>Right hand - keyboard</h3>
+          <table>
+            <tr><td><kbd>K</kbd></td><td>A - talk / jump / use</td></tr>
+            <tr><td><kbd>J</kbd></td><td>B - sword</td></tr>
+            <tr><td><kbd>Space</kbd> <kbd>;</kbd> <kbd>Shift</kbd></td><td>Z - target (hold)</td></tr>
+            <tr><td><kbd>L</kbd></td><td>R - shield (hold)</td></tr>
+            <tr><td><kbd>I</kbd></td><td>C-Up - first person / Navi</td></tr>
+            <tr><td><kbd>U</kbd> <kbd>O</kbd> <kbd>,</kbd></td><td>C-Left / C-Right / C-Down - items</td></tr>
+            <tr><td><kbd>Enter</kbd> <kbd>P</kbd></td><td>Start - pause menu</td></tr>
+            <tr><td><kbd>Q</kbd></td><td>L - map on the pause screen</td></tr>
+            <tr><td><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd></td><td>D-pad</td></tr>
+            <tr><td><kbd>Num 8</kbd><kbd>4</kbd><kbd>6</kbd><kbd>2</kbd></td><td>C-buttons (alternate)</td></tr>
+          </table>
+        </div>
+        <div>
+          <h3>Left hand - stick</h3>
+          <table>
+            <tr><td>On-screen joystick</td><td>full analog, bottom-left</td></tr>
+            <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>analog stick on the keyboard</td></tr>
+            <tr><td><kbd>C</kbd> (hold)</td><td>walk - soft tilt for sneaking and ledges</td></tr>
+            <tr><td><kbd>E</kbd></td><td>R - shield (alternate)</td></tr>
+          </table>
+          <h3>Emulator</h3>
+          <table>
+            <tr><td><kbd>F2</kbd> / <kbd>F4</kbd></td><td>quick save / quick load</td></tr>
+            <tr><td><kbd>&#96;</kbd> (hold)</td><td>fast forward</td></tr>
+          </table>
+          <p>Saves live in this browser's storage. "Save text" exports them as text.
+             The emulator's own menu (bottom of the screen) has state slots, core
+             options and remapping.</p>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============================ emulator wiring ============================ -->
+<script>
+(function(){
+  "use strict";
+  var $ = function(s){return document.querySelector(s)};
+
+  /* ---- N64 button indices used by EmulatorJS's simulate_input ---- */
+  var IDX = {A:0,B:1,START:3,DU:4,DD:5,DL:6,DR:7,L:10,R:11,Z:12,
+             SR:16,SL:17,SD:18,SU:19,CR:20,CL:21,CD:22,CU:23,
+             QSAVE:24,QLOAD:25,FF:27};
+  var ANALOG = 0x7fff;
+  var isAxis = function(i){return i>=16 && i<=23};
+
+  var started = false;
+  function gm(){
+    var e = window.EJS_emulator;
+    return (e && e.gameManager && e.started) ? e.gameManager : null;
+  }
+  function send(idx,val){
+    var g = gm(); if(!g) return;
+    try{ g.simulateInput(0, idx, val|0); }catch(e){}
+  }
+  function press(name,down){
+    var i = IDX[name]; if(i===undefined) return;
+    send(i, down ? (isAxis(i) ? ANALOG : 1) : 0);
+  }
+
+  /* ---------------- analog stick: touch + keyboard, one writer ---------------- */
+  var last = {x:0,y:0};
+  function writeStick(x,y){
+    if(x===last.x && y===last.y) return;
+    last.x = x; last.y = y;
+    send(IDX.SR, x>0 ?  Math.round(ANALOG*x) : 0);
+    send(IDX.SL, x<0 ?  Math.round(-ANALOG*x): 0);
+    send(IDX.SD, y>0 ?  Math.round(ANALOG*y) : 0);
+    send(IDX.SU, y<0 ?  Math.round(-ANALOG*y): 0);
+  }
+
+  var touchVec = {x:0,y:0,active:false};
+  var keys = {};                       // resolved code -> true
+  var kbVec = {x:0,y:0};               // smoothed keyboard vector
+  var walk = false;
+
+  var stickEl = $("#stick"), knobEl = $("#knob");
+  var DEAD = 0.14, WALK_MAG = 0.42;
+
+  function drawKnob(x,y){
+    var r = stickEl.clientWidth/2 - knobEl.clientWidth/2;
+    knobEl.style.transform = "translate("+(x*r).toFixed(1)+"px,"+(y*r).toFixed(1)+"px)";
+  }
+
+  var stickId = null;
+  function stickMove(ev){
+    var r = stickEl.getBoundingClientRect();
+    var cx = r.left + r.width/2, cy = r.top + r.height/2;
+    var rad = r.width/2;
+    var x = (ev.clientX - cx)/rad, y = (ev.clientY - cy)/rad;
+    var m = Math.hypot(x,y);
+    if(m > 1){ x/=m; y/=m; m = 1; }
+    if(m < DEAD){ x = 0; y = 0; }
+    else{
+      var s = ((m-DEAD)/(1-DEAD))/m;   // rescale past the dead zone
+      x*=s; y*=s;
+    }
+    if(walk){ x*=WALK_MAG; y*=WALK_MAG; }
+    touchVec.x = x; touchVec.y = y;
+  }
+  stickEl.addEventListener("pointerdown", function(ev){
+    ev.preventDefault();
+    if(stickId!==null) return;
+    stickId = ev.pointerId;
+    try{ stickEl.setPointerCapture(stickId); }catch(e){}
+    touchVec.active = true;
+    stickMove(ev);
+  });
+  stickEl.addEventListener("pointermove", function(ev){
+    if(ev.pointerId!==stickId) return;
+    ev.preventDefault(); stickMove(ev);
+  });
+  function stickEnd(ev){
+    if(ev.pointerId!==stickId) return;
+    stickId = null; touchVec.active = false; touchVec.x = 0; touchVec.y = 0;
+  }
+  stickEl.addEventListener("pointerup", stickEnd);
+  stickEl.addEventListener("pointercancel", stickEnd);
+  stickEl.addEventListener("lostpointercapture", stickEnd);
+
+  /* keyboard stick (WASD), ramped instead of snapping to full tilt */
+  function kbTarget(){
+    var x = (keys.KeyD?1:0) - (keys.KeyA?1:0);
+    var y = (keys.KeyS?1:0) - (keys.KeyW?1:0);
+    var m = Math.hypot(x,y);
+    if(m>1){ x/=m; y/=m; }
+    return {x:x,y:y};
+  }
+  var RAMP = 0.22;
+  function frame(){
+    try{ tickStick(); }catch(e){}      // never let the input loop die
+  }
+  function tickStick(){
+    var t = kbTarget();
+    var mul = walk ? WALK_MAG : 1;
+    kbVec.x += ((t.x*mul) - kbVec.x) * (t.x===0 ? 1 : RAMP);
+    kbVec.y += ((t.y*mul) - kbVec.y) * (t.y===0 ? 1 : RAMP);
+    if(Math.abs(kbVec.x)<0.004) kbVec.x = 0;
+    if(Math.abs(kbVec.y)<0.004) kbVec.y = 0;
+
+    var useKb = !touchVec.active && (kbVec.x || kbVec.y);
+    var x = touchVec.active ? touchVec.x : (useKb ? kbVec.x : 0);
+    var y = touchVec.active ? touchVec.y : (useKb ? kbVec.y : 0);
+    writeStick(+x.toFixed(3), +y.toFixed(3));
+    stickEl.classList.toggle("kb", !touchVec.active && !!(x||y));
+    drawKnob(x,y);
+  }
+  // a timer, not requestAnimationFrame: rAF is paused in hidden/background
+  // tabs and in some embedded webviews, which would freeze the stick
+  setInterval(frame, 16);
+
+  /* ---------------- on-screen buttons ---------------- */
+  function bindButton(el){
+    var name = el.getAttribute("data-btn");
+    var held = {};
+    function down(ev){
+      ev.preventDefault();
+      el.classList.add("down");
+      held[ev.pointerId] = true;
+      try{ el.setPointerCapture(ev.pointerId); }catch(e){}
+      if(name==="WALK"){ walk = true; el.setAttribute("data-on","1"); }
+      else press(name,true);
+    }
+    function up(ev){
+      if(!held[ev.pointerId]) return;
+      delete held[ev.pointerId];
+      ev.preventDefault();
+      el.classList.remove("down");
+      if(name==="WALK"){ walk = false; el.removeAttribute("data-on"); }
+      else press(name,false);
+    }
+    el.addEventListener("pointerdown",down);
+    el.addEventListener("pointerup",up);
+    el.addEventListener("pointercancel",up);
+    el.addEventListener("lostpointercapture",up);
+    el.addEventListener("contextmenu",function(e){e.preventDefault()});
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-btn]"), bindButton);
+
+  /* ---------------- keyboard ---------------- */
+  /* Handled here (on window) rather than only through EmulatorJS's own key
+     handler, which needs the emulator element to keep DOM focus - touching an
+     on-screen button on a laptop would otherwise kill the keyboard. */
+  var KEYMAP = {
+    KeyK:"A", KeyJ:"B",
+    Space:"Z", Semicolon:"Z", ShiftLeft:"Z", ShiftRight:"Z",
+    KeyL:"R", KeyE:"R", KeyQ:"L",
+    Enter:"START", KeyP:"START",
+    KeyI:"CU", Comma:"CD", KeyU:"CL", KeyO:"CR",
+    Numpad8:"CU", Numpad2:"CD", Numpad4:"CL", Numpad6:"CR",
+    ArrowUp:"DU", ArrowDown:"DD", ArrowLeft:"DL", ArrowRight:"DR"
+  };
+  var STICK_KEYS = {KeyW:1,KeyA:1,KeyS:1,KeyD:1};
+  var HANDLED = Object.assign({KeyC:1,F2:1,F4:1,Backquote:1}, KEYMAP, STICK_KEYS);
+
+  /* Some keyboards / remote sessions deliver events without ev.code; fall back
+     to ev.key and then to keyCode so the layout still works. */
+  var KEYFALLBACK = {
+    " ":"Space", "spacebar":"Space", "enter":"Enter", ",":"Comma", ";":"Semicolon",
+    "`":"Backquote", "~":"Backquote", "shift":"ShiftLeft",
+    "arrowup":"ArrowUp", "arrowdown":"ArrowDown",
+    "arrowleft":"ArrowLeft", "arrowright":"ArrowRight",
+    "up":"ArrowUp", "down":"ArrowDown", "left":"ArrowLeft", "right":"ArrowRight",
+    "f2":"F2", "f4":"F4"
+  };
+  var CODEFALLBACK = {
+    32:"Space", 13:"Enter", 16:"ShiftLeft", 188:"Comma", 186:"Semicolon", 192:"Backquote",
+    37:"ArrowLeft", 38:"ArrowUp", 39:"ArrowRight", 40:"ArrowDown", 113:"F2", 115:"F4",
+    96:"Numpad0", 98:"Numpad2", 100:"Numpad4", 102:"Numpad6", 104:"Numpad8"
+  };
+  function resolveCode(ev){
+    if(ev.code) return ev.code;
+    var k = ev.key;
+    if(k){
+      if(k.length===1 && /[a-z]/i.test(k)) return "Key" + k.toUpperCase();
+      if(ev.location===3 && /^[0-9]$/.test(k)) return "Numpad" + k;
+      var f = KEYFALLBACK[k.toLowerCase()];
+      if(f) return f;
+    }
+    if(ev.keyCode){
+      if(ev.keyCode>=65 && ev.keyCode<=90) return "Key" + String.fromCharCode(ev.keyCode);
+      if(CODEFALLBACK[ev.keyCode]) return CODEFALLBACK[ev.keyCode];
+    }
+    return "";
+  }
+
+  function onKey(ev){
+    if(ev.repeat) return;
+    var code = resolveCode(ev);
+    if(!HANDLED[code]) return;
+    var down = ev.type === "keydown";
+    var t = ev.target;
+    if(t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.tagName==="SELECT")) return;
+    ev.preventDefault();
+    if(!started) return;
+
+    if(STICK_KEYS[code]){ keys[code] = down; return; }
+    if(code==="KeyC"){ walk = down; return; }
+    if(code==="F2"){ send(IDX.QSAVE, down?1:0); return; }
+    if(code==="F4"){ send(IDX.QLOAD, down?1:0); return; }
+    if(code==="Backquote"){ send(IDX.FF, down?1:0); return; }
+    press(KEYMAP[code], down);
+  }
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("keyup", onKey, true);
+  window.addEventListener("blur", function(){
+    for(var k in keys) keys[k] = false;
+    walk = false;
+    for(var n in IDX) if(n!=="QSAVE"&&n!=="QLOAD"&&n!=="FF") send(IDX[n],0);
+  });
+
+  /* ---------------- audio: autostart means no user gesture yet ---------------- */
+  var soundBar = $("#sound");
+  function audioCtx(){
+    var e = window.EJS_emulator, m = e && e.Module;
+    if(!m) return null;
+    if(m.SDL2 && m.SDL2.audioContext) return m.SDL2.audioContext;
+    if(m.AL && m.AL.currentCtx && m.AL.currentCtx.audioCtx) return m.AL.currentCtx.audioCtx;
+    return null;
+  }
+  function resumeAudio(){
+    var c = audioCtx();
+    if(c && c.state === "suspended"){ try{ c.resume(); }catch(e){} }
+    soundBar.classList.toggle("on", !!(c && c.state === "suspended"));
+  }
+  ["pointerdown","keydown","touchstart"].forEach(function(t){
+    window.addEventListener(t, resumeAudio, true);
+  });
+  setInterval(function(){
+    var c = audioCtx();
+    soundBar.classList.toggle("on", !!(started && c && c.state === "suspended"));
+  }, 1000);
+
+  /* ---------------- text save / load ---------------- */
+  var STATE_TAG = "OOT-STATE-1", SRAM_TAG = "OOT-SRAM-1", RAW = "-RAW";
+  var savetext = $("#savetext"), savemsg = $("#savemsg");
+  function msg(t){ savemsg.textContent = t }
+
+  function toB64(u8){
+    var s = "", C = 0x8000;
+    for(var i=0;i<u8.length;i+=C) s += String.fromCharCode.apply(null, u8.subarray(i,i+C));
+    return btoa(s);
+  }
+  function fromB64(b64){
+    var s = atob(b64), u = new Uint8Array(s.length);
+    for(var i=0;i<s.length;i++) u[i] = s.charCodeAt(i);
+    return u;
+  }
+  async function gzip(u8){
+    if(typeof CompressionStream !== "function") return null;
+    var cs = new CompressionStream("gzip");
+    var w = cs.writable.getWriter();
+    var p = new Response(cs.readable).arrayBuffer();
+    w.write(u8); w.close();
+    return new Uint8Array(await p);
+  }
+  async function gunzip(u8){
+    var ds = new DecompressionStream("gzip");
+    var w = ds.writable.getWriter();
+    var p = new Response(ds.readable).arrayBuffer();
+    w.write(u8); w.close();
+    return new Uint8Array(await p);
+  }
+  function wrap(s){ return s.replace(/(.{100})/g, "$1\n") }
+
+  function kb(n){ return n < 1024 ? n + " bytes" : (n/1024).toFixed(n < 102400 ? 1 : 0) + " KB" }
+  function isBlank(u8){
+    for(var i=0;i<u8.length;i++) if(u8[i]!==0 && u8[i]!==0xff) return false;
+    return true;
+  }
+  async function exportBlob(tag, data, note){
+    var packed = await gzip(data);
+    var head = tag + (packed ? "" : RAW);
+    if(!packed) packed = data;
+    savetext.value = head + "\n" + wrap(toB64(packed)) + "\n";
+    msg(kb(data.length) + " -> " + kb(savetext.value.length) + " of text" + (note || ""));
+  }
+
+  $("#expState").addEventListener("click", async function(){
+    var g = gm(); if(!g) return msg("not running yet");
+    try{
+      var st = g.getState();
+      if(!(st instanceof Uint8Array)) return msg("this core would not give a save state");
+      await exportBlob(STATE_TAG, st);
+    }catch(e){ msg(String(e.message||e)) }
+  });
+  $("#expSram").addEventListener("click", async function(){
+    var g = gm(); if(!g) return msg("not running yet");
+    try{
+      var sv = g.getSaveFile();
+      if(!sv || !sv.length) return msg("no cartridge save file yet - save in-game first");
+      await exportBlob(SRAM_TAG, sv,
+        isBlank(sv) ? " (warning: the save file is still empty - save in-game first)" : "");
+    }catch(e){ msg(String(e.message||e)) }
+  });
+  $("#impBtn").addEventListener("click", async function(){
+    var g = gm(); if(!g) return msg("not running yet");
+    var txt = savetext.value.trim();
+    if(!txt) return msg("paste an exported block first");
+    var nl = txt.indexOf("\n");
+    var head = (nl<0 ? txt : txt.slice(0,nl)).trim();
+    var body = (nl<0 ? "" : txt.slice(nl+1)).replace(/\s+/g,"");
+    var isState = head.indexOf(STATE_TAG) === 0;
+    var isSram  = head.indexOf(SRAM_TAG) === 0;
+    if(!isState && !isSram) return msg("first line must be " + STATE_TAG + " or " + SRAM_TAG);
+    try{
+      var data = fromB64(body);
+      if(head.indexOf(RAW) < 0) data = await gunzip(data);
+      if(isState){
+        g.loadState(data);
+        msg("save state loaded");
+      }else{
+        g.FS.writeFile(g.getSaveFilePath(), data);
+        g.loadSaveFiles();
+        msg("cartridge save loaded - reset or reload the game file in-game to see it");
+      }
+      $("#save").classList.remove("on");
+    }catch(e){ msg("could not read that text: " + String(e.message||e)) }
+  });
+  $("#copyBtn").addEventListener("click", function(){
+    if(!savetext.value) return msg("nothing to copy");
+    savetext.select();
+    var ok = false;
+    try{ ok = document.execCommand("copy") }catch(e){}
+    if(!ok && navigator.clipboard) navigator.clipboard.writeText(savetext.value).then(
+      function(){ msg("copied") }, function(){ msg("select the text and copy manually") });
+    else msg(ok ? "copied" : "select the text and copy manually");
+  });
+  $("#dlBtn").addEventListener("click", function(){
+    if(!savetext.value) return msg("export something first");
+    var b = new Blob([savetext.value], {type:"text/plain"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "oot-save-" + new Date().toISOString().replace(/[:.]/g,"-").slice(0,19) + ".txt";
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href) }, 10000);
+    msg("downloaded");
+  });
+
+  /* ---------------- top bar ---------------- */
+  var overlay = $("#overlay");
+  function flip(el){
+    var on = el.getAttribute("data-on") !== "1";
+    if(on) el.setAttribute("data-on","1"); else el.removeAttribute("data-on");
+    return on;
+  }
+  $("#tBtns").addEventListener("click", function(){
+    overlay.classList.toggle("hide-btns", !flip(this));
+  });
+  $("#tStick").addEventListener("click", function(){
+    var on = flip(this);
+    stickEl.style.display = on ? "" : "none";
+    if(!on){ touchVec.active=false; touchVec.x=0; touchVec.y=0; }
+  });
+  $("#tFs").addEventListener("click", function(){
+    var e = window.EJS_emulator;
+    if(e && e.started){ try{ e.toggleFullscreen(!document.fullscreenElement); return; }catch(err){} }
+    var app = $("#app");
+    if(document.fullscreenElement) document.exitFullscreen();
+    else if(app.requestFullscreen) app.requestFullscreen();
+  });
+  $("#tHelp").addEventListener("click", function(){ $("#help").classList.add("on") });
+  $("#tSave").addEventListener("click", function(){ $("#save").classList.add("on"); msg("") });
+  $("#closeHelp").addEventListener("click", function(){ $("#help").classList.remove("on") });
+  $("#closeSave").addEventListener("click", function(){ $("#save").classList.remove("on") });
+  document.addEventListener("keydown", function(e){
+    if(e.key==="Escape"){
+      $("#help").classList.remove("on");
+      $("#save").classList.remove("on");
+    }
+  });
+  document.addEventListener("gesturestart", function(e){e.preventDefault()});
+
+  /* ---------------- ROM decode + boot ---------------- */
+  var bootEl = $("#boot"), bootmsg = $("#bootmsg"), progBar = $("#prog").firstElementChild;
+  function say(t){ bootmsg.textContent = t }
+  function pct(p){ progBar.style.width = Math.round(p*100)+"%" }
+  var tick = function(){ return new Promise(function(r){ setTimeout(r,0) }) };
+
+  /* The ROM lives next to this page as a separate brotli-compressed file, so
+     the page itself stays tiny. Set ROM_URL to wherever you host it. */
+  var ROM_URL   = "oot-rom-verified.bin";
+  var ROM_MIN   = 8 * 1048576;   // sanity floor; works with either ROM build
+
+  async function decodeRom(){
+    say("Downloading ROM...");
+    var res;
+    try{ res = await fetch(ROM_URL); }
+    catch(e){
+      throw new Error("could not fetch " + ROM_URL + " - if you opened this page as a " +
+                      "file:// document, serve it over http instead.");
+    }
+    if(!res.ok) throw new Error("could not fetch " + ROM_URL + " (HTTP " + res.status + ")");
+
+    var total = parseFloat(res.headers.get("content-length")) || 0;
+    var chunks = [], got = 0, reader = res.body.getReader();
+    for(;;){
+      var r = await reader.read();
+      if(r.done) break;
+      chunks.push(r.value); got += r.value.length;
+      pct(total ? 0.8 * got / total : 0.4);
+      say("Downloading ROM... " + (got/1048576).toFixed(1) + " MB");
+    }
+    var packed = new Uint8Array(got), at = 0;
+    for(var i=0;i<chunks.length;i++){ packed.set(chunks[i], at); at += chunks[i].length; }
+    chunks.length = 0;
+
+    say("Unpacking ROM...");
+    var brotli;
+    try{
+      brotli = await (await import("https://cdn.jsdelivr.net/npm/brotli-wasm@3.0.1/+esm")).default;
+    }catch(e){
+      throw new Error("could not load the brotli decoder from jsdelivr: " + (e.message||e));
+    }
+    var rom = brotli.decompress(packed);
+    packed = null;
+    pct(1);
+
+    if(rom.length < ROM_MIN)
+      throw new Error("ROM unpacked to only " + rom.length + " bytes");
+    if(!(rom[0]===0x80 && rom[1]===0x37 && rom[2]===0x12 && rom[3]===0x40))
+      throw new Error("Unpacked data does not look like a big-endian .z64");
+    return rom;
+  }
+
+  function boot(rom){
+    window.EJS_player = "#player";
+    window.EJS_core = "n64";
+    window.EJS_gameName = "The Legend of Zelda - Ocarina of Time (U) (V1.2)";
+    window.EJS_gameID = 1;
+    window.EJS_gameUrl = rom;                 // Uint8Array is accepted directly
+    window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+    window.EJS_startOnLoaded = true;
+    window.EJS_color = "#000000";
+    window.EJS_volume = 0.7;
+    window.EJS_backgroundColor = "#000";
+    // mupen64plus-next core options tuned for speed on a laptop GPU
+    window.EJS_defaultOptions = {
+      "mupen64plus-43screensize": "320x240",   // native res: by far the biggest win
+      "mupen64plus-FrameDuping": "True",       // skip re-rendering identical frames
+      "mupen64plus-HybridFilter": "False",
+      "mupen64plus-MultiSampling": "0",
+      "mupen64plus-cpucore": "cached_interpreter",
+      "mupen64plus-astick-deadzone": "0"       // the overlay applies its own
+    };
+    // Keyboard is driven by the handler above; these keep the emulator's own
+    // Control Settings menu showing the same layout.
+    window.EJS_defaultControls = {
+      0:{ 0:{value:"k"}, 1:{value:"j"}, 3:{value:"enter"},
+          4:{value:"up arrow"}, 5:{value:"down arrow"},
+          6:{value:"left arrow"}, 7:{value:"right arrow"},
+          10:{value:"q"}, 11:{value:"l"}, 12:{value:"space"},
+          20:{value:"o"}, 21:{value:"u"}, 22:{value:"comma"}, 23:{value:"i"} },
+      1:{}, 2:{}, 3:{}
+    };
+    window.EJS_onGameStart = function(){
+      started = true;
+      // keep the pad visible and clickable inside the emulator's own fullscreen
+      var p = document.querySelector("#player");
+      if(p && overlay.parentElement !== p) p.appendChild(overlay);
+      bootEl.classList.add("done");
+      $("#diag").classList.remove("on");
+      resumeAudio();
+    };
+
+    var s = document.createElement("script");
+    s.src = window.EJS_pathtodata + "loader.js";
+    s.onerror = function(){ say("Could not reach cdn.emulatorjs.org - check the network."); };
+    s.onload = function(){
+      // step aside so EmulatorJS's own progress (with percentages) is visible
+      bootEl.classList.add("done");
+      setTimeout(function(){
+        if(started) return;
+        var d = $("#diag");
+        d.textContent = "Still loading after 45s. If it never starts, the ROM build is "
+          + "probably at fault - try the original ROM (see ROM_URL).";
+        d.classList.add("on");
+      }, 45000);
+    };
+    document.body.appendChild(s);
+  }
+
+  // autostart: no button, no gesture. Audio stays suspended until the first
+  // click or keypress, which the listeners above pick up.
+  function autostart(){
+    decodeRom().then(function(rom){
+      say("Loading emulator core...");
+      boot(rom);
+    }).catch(function(err){
+      console.error(err);
+      say(String(err && err.message || err));
+    });
+  }
+  if(document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", autostart);
+  else
+    autostart();
+})();
+</script>
+
+</body>
+</html>
